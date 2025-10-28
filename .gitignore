@@ -1,0 +1,5 @@
+.DS_Store
+*.xlsx
+/warelytic
+EU_Larger_Items_Warehouse_Weekly_Summary_1027.txt
+*.csv
