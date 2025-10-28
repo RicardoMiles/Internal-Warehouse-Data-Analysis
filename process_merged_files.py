@@ -7,21 +7,47 @@ import numpy as np
 import sys
 from datetime import datetime, timedelta
 
+
 # -------------------- 日期参数处理 --------------------
-# 默认日期 = 今天
-TODAY = datetime.now().strftime("%Y-%m-%d")
+def resolve_today(argv):
+    """返回要使用的日期字符串（YYYY-MM-DD）。
+    支持：无参数=今天；--yesterday=昨天；显式日期=YYYY-MM-DD。"""
+    base = datetime.now()
+    today_str = base.strftime("%Y-%m-%d")
 
-# 如果用户在命令行传入日期，例如：
-# python yourscript.py 2025-10-27
-# 或者 python yourscript.py --date 2025-10-27
-if len(sys.argv) >= 2:
-    arg = sys.argv[-1]
-    if arg.replace("-", "").isdigit():  # 简单判断是否像日期
-        TODAY = arg
-    elif "--yesterday" in sys.argv:
-        TODAY = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+    # 无参数 → 用今天
+    if len(argv) < 2:
+        return today_str
 
+    # 显式 --yesterday
+    if "--yesterday" in argv:
+        return (base - timedelta(days=1)).strftime("%Y-%m-%d")
+
+    # 尝试识别最后一个参数是日期
+    arg = argv[-1]
+    if arg.replace("-", "").isdigit() and len(arg) == 10:
+        # 简单校验：YYYY-MM-DD
+        try:
+            datetime.strptime(arg, "%Y-%m-%d")
+            return arg
+        except ValueError:
+            pass
+
+    # 也可支持 --date 2025-10-27 的写法
+    if "--date" in argv:
+        try:
+            idx = argv.index("--date")
+            if idx + 1 < len(argv):
+                cand = argv[idx + 1]
+                datetime.strptime(cand, "%Y-%m-%d")
+                return cand
+        except Exception:
+            pass
+
+    return today_str
+    
 PARENT_DIR = os.path.dirname(os.path.abspath(__file__))
+TODAY = resolve_today(sys.argv)
 
 def find_merged_files():
     merged_files = []
@@ -36,6 +62,7 @@ def find_merged_files():
 
 def main():
     print("\n" + "="*80)
+    print("用法示例：python process_merged_files.py [YYYY-MM-DD] 或 --yesterday 或 --date YYYY-MM-DD")
     print(f"开始数据处理 - 日期: {TODAY}")
     print(f"搜索目录: {PARENT_DIR}")
     print("="*80 + "\n")
@@ -58,6 +85,7 @@ def main():
 
             # Initiailise
             inv_sku = inv_qty = ib_order = ib_sku = ib_qty = ob_order = ob_qty = np.nan
+            inv_total_volume_m3 = np.nan  # Debug for qty_serious not defined
 
             # ==================== Inventory ====================
             if 'Inventory' in xls.sheet_names:
@@ -111,7 +139,6 @@ def main():
                     print("[WARN] 未找到库存量列 → inv_units_qty_cur = NaN")
                     
                 # --- 3) 维度列匹配并计算总体积（m³）---
-                # 允许中英列名；若有多候选，取首个
                 len_keywords = ['长', 'Length']
                 wid_keywords = ['宽', 'Width']
                 hei_keywords = ['高', 'Height']
@@ -132,28 +159,24 @@ def main():
                 print(f"  - 宽/Width  候选: {W_cands} → 选用: {repr(W_col)}")
                 print(f"  - 高/Height 候选: {H_cands} → 选用: {repr(H_col)}")
 
-                inv_total_volume_m3 = np.nan  # 默认值
+                inv_total_volume_m3 = np.nan
 
-                if all([L_col, W_col, H_col]) and qty_series is not None:
-                    # 转数值；非数值变为 NaN，再用 0 填充，避免乘法传播 NaN
+                # ✅ 不再检查 qty_series，直接复用 qty_col
+                if all([L_col, W_col, H_col, qty_col]):
                     L = pd.to_numeric(df[L_col], errors='coerce').fillna(0)
                     W = pd.to_numeric(df[W_col], errors='coerce').fillna(0)
                     H = pd.to_numeric(df[H_col], errors='coerce').fillna(0)
-                    Q = qty_series.fillna(0)
+                    Q = pd.to_numeric(df[qty_col], errors='coerce').fillna(0)
 
-                    # 体积（m³）= L*W*H / 1e6 * Q
-                    # 说明：按你的要求除以 1,000,000；通常表示 mm³ → m³
-                    per_unit_m3 = (L * W * H) / 1_000_000
-                    total_volume = (per_unit_m3 * Q).sum()
-                    inv_total_volume_m3 = float(total_volume)
+                    per_unit_m3 = (L * W * H) / 1_000_000  # mm³ → m³
+                    inv_total_volume_m3 = float((per_unit_m3 * Q).sum())
 
                     print(f"[DEBUG] 体积计算行数: {len(df)}")
                     print(f"[DEBUG] 非零 per_unit_m3 行数: {(per_unit_m3 > 0).sum()}")
                     print(f"[DEBUG] 非零 Q 行数: {(Q > 0).sum()}")
                     print(f"[DEBUG] 在库总体积(m³) 合计: {inv_total_volume_m3:.6f}")
                 else:
-                    missing = [name for name, col in [('Length', L_col), ('Width', W_col), ('Height', H_col), ('Qty', qty_series is not None)] if not col]
-                    print(f"[WARN] 无法计算体积，缺少列或库存量：{missing} → inv_total_volume_m3 = NaN")
+                    print("[WARN] 无法计算体积，缺少列 → inv_total_volume_m3 = NaN")
 
             # ==================== Inbound / Outbound (保持不变) ====================
             # （为了节省篇幅，这里省略，保持原逻辑不变）
