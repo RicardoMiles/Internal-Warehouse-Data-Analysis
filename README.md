@@ -1,8 +1,14 @@
 ### Project Structure Setup
 
-Place four folders in the root directory of the project: `\UK`,` \DE`,` \NL`, `\FR`
+Place four folders in the root directory of the project: `\UK`,` \DE`,` \NL`, `\FR`, manually or use the command shown below.
 
 ```shell
+# Windows
+mkdir UK
+mkdir NL
+mkdir DE
+mkdir FR
+# Linux & macOS
 mkdir UK DE NL FR
 ```
 
@@ -68,6 +74,12 @@ python.exe ./program.py --date 2025-10-29
 在项目根目录下放置四个文件夹：`\UK`、`\DE`、` \NL`、`\FR`
 
 ```shell
+# Windows
+mkdir UK
+mkdir NL
+mkdir DE
+mkdir FR
+# Linux & macOS
 mkdir UK DE NL FR
 ```
 
