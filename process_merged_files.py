@@ -8,7 +8,7 @@ import sys
 from datetime import datetime, timedelta
 
 
-# -------------------- 日期参数处理 --------------------
+# -------------------- 日期参数处理 Date Parameters Handling --------------------
 def resolve_today(argv):
     """返回要使用的日期字符串（YYYY-MM-DD）。
     支持：无参数=今天；--yesterday=昨天；显式日期=YYYY-MM-DD。"""
@@ -16,17 +16,21 @@ def resolve_today(argv):
     today_str = base.strftime("%Y-%m-%d")
 
     # 无参数 → 用今天
+    # No parameter - Default Today
     if len(argv) < 2:
         return today_str
 
     # 显式 --yesterday
+    # Explicit Parameter --yesterday
     if "--yesterday" in argv:
         return (base - timedelta(days=1)).strftime("%Y-%m-%d")
 
     # 尝试识别最后一个参数是日期
+    # Try to scan the last parameter as date
     arg = argv[-1]
     if arg.replace("-", "").isdigit() and len(arg) == 10:
         # 简单校验：YYYY-MM-DD
+        # Format Validation : YYYY-MM-DD
         try:
             datetime.strptime(arg, "%Y-%m-%d")
             return arg
@@ -34,6 +38,7 @@ def resolve_today(argv):
             pass
 
     # 也可支持 --date 2025-10-27 的写法
+    # Support parameter format like --date 2025-10-27
     if "--date" in argv:
         try:
             idx = argv.index("--date")
@@ -62,14 +67,19 @@ def find_merged_files():
 
 def main():
     print("\n" + "="*80)
-    print("用法示例：python process_merged_files.py [YYYY-MM-DD] 或 --yesterday 或 --date YYYY-MM-DD")
+    # python process_merged_files.py [YYYY-MM-DD] 
+    # python process_merged_files.py --yesterday 
+    # python process_merged_files.py --date YYYY-MM-DD
     print(f"开始数据处理 - 日期: {TODAY}")
+    print(f"Data Analysis Service started - Date: {TODAY}")
     print(f"搜索目录: {PARENT_DIR}")
+    print(f"Searching Directory: {PARENT_DIR}")
     print("="*80 + "\n")
 
     merged_files = find_merged_files()
     if not merged_files:
         print("未找到统合文件！请先运行 combine_excel_sheets.py")
+        print("Combined sheets not found! Please run combine_excel_sheets.py first.")
         return
 
     print(f"发现 {len(merged_files)} 个统合文件：")
@@ -79,7 +89,7 @@ def main():
     results = []
     for filename, filepath, folder_name in merged_files:
         print(f"\n{'-'*60}")
-        print(f"处理: {folder_name}/{filename}")
+        print(f"处理 Handling: {folder_name}/{filename}")
         try:
             xls = pd.ExcelFile(filepath)
 
@@ -95,29 +105,29 @@ def main():
                 for i, c in enumerate(cols, 1):
                     print(f"  {i:2d}. '{c}'")
 
-                # --- 1. Match SKU Column ---
+                # --- 1. Match SKU Column 匹配SKU列 ---
                 sku_keywords = ['JD SKU', '商品条码']
-                print(f"\n[DEBUG] 尝试匹配 SKU 列，关键词: {sku_keywords}")
+                print(f"\n[DEBUG] Try to match SKU column {sku_keywords} 尝试匹配 SKU 列，关键词: {sku_keywords}")
                 sku_col = None
                 for kw in sku_keywords:
                     matches = [c for c in cols if kw in c]
-                    print(f"  - 关键词 '{kw}' 匹配到: {matches}")
+                    print(f"  - 关键词 Key Word '{kw}' 匹配到 Matched with : {matches}")
                     if matches:
-                        sku_col = matches[0]      # 取第一个匹配
+                        sku_col = matches[0]      # 取第一个匹配 Get the first matched column
                         break
 
                 if sku_col:
-                    print(f"[DEBUG] 选中 SKU 列: '{sku_col}'")
-                    data = df[sku_col].iloc[0:]          # 跳过第1行表头，但是Panda自动处理了，所以还是0
-                    print(f"[DEBUG] 跳过表头后行数: {len(data)}")
+                    print(f"[DEBUG] SKU Column Selected 选中 SKU 列: '{sku_col}'")
+                    data = df[sku_col].iloc[0:]          # Try to skip the first line, but Pandas handled that automatically, still use 0
+                    print(f"[DEBUG] Skip first couple of lines 跳过表头后行数: {len(data)}")
                     clean = data.dropna()
-                    print(f"[DEBUG] dropna() 后非空值: {len(clean)}")
+                    print(f"[DEBUG] Non-empty Value after dropna(){len(clean)},dropna() 后非空值: {len(clean)}")
                     inv_sku = clean.nunique()
                     print(f"[DEBUG] inv_sku_qty_cur = nunique() = {inv_sku}")
                 else:
-                    print("[WARN] 未找到任何 SKU 列 → inv_sku_qty_cur = NaN")
+                    print("[WARN] No SKU Column Found. 未找到任何 SKU 列 → inv_sku_qty_cur = NaN")
 
-                # --- 2. 匹配库存量列 ---
+                # --- 2. Match Inventory QTY Column 匹配库存量列 ---
                 qty_keywords = ['库存量', 'Inventory QTY.']
                 print(f"\n[DEBUG] 尝试匹配库存量列，关键词: {qty_keywords}")
                 qty_col = None
@@ -129,16 +139,16 @@ def main():
                         break
 
                 if qty_col:
-                    print(f"[DEBUG] 选中库存量列: '{qty_col}'")
+                    print(f"[DEBUG] Inv QTY Column Selected 选中库存量列: '{qty_col}'")
                     data = df[qty_col].iloc[0:] # Try to skip line 0, found that pandas did that for me already
                     numeric = pd.to_numeric(data, errors='coerce')
-                    print(f"[DEBUG] 转换为数值后非 NaN 数量: {numeric.notna().sum()}")
+                    print(f"[DEBUG] Sum of NaN QTY 转换为数值后非 NaN 数量: {numeric.notna().sum()}")
                     inv_qty = numeric.sum()
                     print(f"[DEBUG] inv_units_qty_cur = sum() = {inv_qty}")
                 else:
                     print("[WARN] 未找到库存量列 → inv_units_qty_cur = NaN")
                     
-                # --- 3) 维度列匹配并计算总体积（m³）---
+                # --- 3) Match Logistics Property 物流属性匹配匹配并计算总体积（m³）---
                 len_keywords = ['长', 'Length']
                 wid_keywords = ['宽', 'Width']
                 hei_keywords = ['高', 'Height']
@@ -154,14 +164,9 @@ def main():
                 W_col, W_cands = pick_col(wid_keywords)
                 H_col, H_cands = pick_col(hei_keywords)
 
-                print(f"\n[DEBUG] 维度列匹配：")
-                print(f"  - 长/Length 候选: {L_cands} → 选用: {repr(L_col)}")
-                print(f"  - 宽/Width  候选: {W_cands} → 选用: {repr(W_col)}")
-                print(f"  - 高/Height 候选: {H_cands} → 选用: {repr(H_col)}")
-
                 inv_total_volume_m3 = np.nan
 
-                # ✅ 不再检查 qty_series，直接复用 qty_col
+                # 直接复用 qty_col, Use the variable qty_col claimed before
                 if all([L_col, W_col, H_col, qty_col]):
                     L = pd.to_numeric(df[L_col], errors='coerce').fillna(0)
                     W = pd.to_numeric(df[W_col], errors='coerce').fillna(0)
@@ -178,7 +183,7 @@ def main():
                 else:
                     print("[WARN] 无法计算体积，缺少列 → inv_total_volume_m3 = NaN")
 
-            # ==================== Inbound / Outbound (保持不变) ====================
+            # ==================== Inbound / Outbound (保持不变 Keep the same logic) ====================
             # （为了节省篇幅，这里省略，保持原逻辑不变）
             # 如需同样加 debug，可复制上面的结构
 
@@ -202,7 +207,7 @@ def main():
                 if order_col: ob_order = df[order_col].iloc[1:].dropna().nunique()
                 if qty_col:   ob_qty   = pd.to_numeric(df[qty_col].iloc[1:], errors='coerce').sum()
 
-            # ==================== 记录结果 ====================
+            # ==================== 记录结果 Result Generation ====================
             results.append({
                 '仓库 / Warehouse': folder_name,
                 '文件 / File': filename,
@@ -217,19 +222,19 @@ def main():
             })
 
         except Exception as e:
-            print(f"  处理失败: {e}")
+            print(f"  处理失败 Fatal Error: {e}")
 
-    # ==================== 输出 ====================
+    # ==================== 输出 Output ====================
     if results:
         df_out = pd.DataFrame(results)
         print("\n" + "="*80)
-        print("数据处理完成！")
+        print("数据处理完成! Data analysis done! ")
         print("="*80)
         print(df_out.to_string(index=False, float_format='%.0f'))
 
         csv_path = os.path.join(PARENT_DIR, f"warehouse_summary_{TODAY}.csv")
         df_out.to_csv(csv_path, index=False, encoding='utf-8-sig')
-        print(f"\n已保存汇总文件: {csv_path}")
+        print(f"{csv_path} has been saved as summary sheet. \n已保存汇总文件: {csv_path}")
         print("="*80)
 
 if __name__ == "__main__":

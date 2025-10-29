@@ -11,6 +11,7 @@ CSV_PATH = os.path.join(PARENT_DIR, f"warehouse_summary_{datetime.now().strftime
 REPORT_PATH = os.path.join(PARENT_DIR, f"EU_Larger_Items_Warehouse_Weekly_Summary_{datetime.now().strftime('%m%d')}.txt")
 
 # 国家映射
+# Mapping Country with Column Content for Data Extraction
 COUNTRY_MAP = {
     'DE': ('德国', 'Germany'),
     'FR': ('法国', 'France'),
@@ -18,28 +19,31 @@ COUNTRY_MAP = {
     'UK': ('英国', 'United Kingdom'),
 }
 
-# 周范围（本周一到周日）
+# 周范围（本周一到周五）
+# Date Variables for Weekly Report Range Print
 today = datetime.now().date()
 monday = today - timedelta(days=today.weekday())
-sunday = monday + timedelta(days=6)
-WEEK_RANGE_CN = f"{monday.month}月{monday.day}日 - {sunday.month}月{sunday.day}日"
-WEEK_RANGE_EN = f"{monday.strftime('%B %d')} - {sunday.strftime('%B %d')}"
+friday = monday + timedelta(days=4)
+WEEK_RANGE_CN = f"{monday.month}月{monday.day}日 - {friday.month}月{friday.day}日"
+WEEK_RANGE_EN = f"{monday.strftime('%B %d')} - {friday.strftime('%B %d')}"
 # ================================================
 
 def load_data():
     if not os.path.exists(CSV_PATH):
-        print(f"未找到数据文件: {CSV_PATH}")
-        print("请先运行 process_merged_files.py")
+        print(f"Data files {CSV_PATH} not found!\n 未找到数据文件: {CSV_PATH}")
+        print("Please run process_merged_files.py firstly.\n请先运行 process_merged_files.py")
         return None
     return pd.read_csv(CSV_PATH, encoding='utf-8-sig')
 
 def main():
     print(f"正在生成周报 → {REPORT_PATH}")
+    print(f"Loading for Weekly Report Generation → {REPORT_PATH}")
     df = load_data()
     if df is None:
         return
 
     # 初始化汇总
+    # Initialise the Summary
     total = {'orders': 0, 'skus': 0, 'pcs': 0}
     inbound_by_country = {}
     inventory_by_country = {}
@@ -71,10 +75,12 @@ def main():
         outbound_by_country[country_code] = ob_pcs
 
     # 生成报告
+    # Report Generation
     lines = []
 
     # 中文标题
-    lines.append(f"大件仓储汇周汇总（{WEEK_RANGE_CN}）")
+    # Mandarin Chinese Title
+    lines.append(f"大件仓储汇总（{WEEK_RANGE_CN}）")
     lines.append("1. 入库验收")
     lines.append(f"总计: {total['orders']}单，{total['skus']}个SKU，{total['pcs']}件")
     for code, (orders, skus, pcs) in inbound_by_country.items():
@@ -106,6 +112,7 @@ def main():
     lines.append("")
 
     # 英文标题
+    # English Title
     lines.append(f"EU Larger Items Warehouse Weekly Summary ({WEEK_RANGE_EN})")
     lines.append("1. Inbound Receiving")
     lines.append(f"Total: {total['orders']} orders, {total['skus']} SKUs, {total['pcs']:,} PCs")
@@ -134,13 +141,14 @@ def main():
     lines.append("Average Attendance: Approx. 31 people/day")
 
     # 写入文件
+    # Write into files
     with open(REPORT_PATH, 'w', encoding='utf-8') as f:
         f.write("\n".join(lines))
 
-    print("周报生成成功！")
-    print(f"文件: {REPORT_PATH}")
-    print("\n预览（前15行）：")
-    print("\n".join(lines[:15]))
+    print("报告生成成功！Report generated and exported successfully!\n ")
+    print(f"文件File generated as : {REPORT_PATH}")
+    print("\n预览Preview（First 30 lines 前60行）：")
+    print("\n".join(lines[:60]))
     print("...")
 
 if __name__ == "__main__":
