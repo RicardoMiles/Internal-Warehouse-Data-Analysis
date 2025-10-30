@@ -1,4 +1,4 @@
-$VENV_DIR = "venv"
+$VENV_DIR = "warelytic"
 
 if (Test-Path "$VENV_DIR\Scripts\Activate.ps1") {
     Write-Host "Activating virtual environment from $VENV_DIR..."
